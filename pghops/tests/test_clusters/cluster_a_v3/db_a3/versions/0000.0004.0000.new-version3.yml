@@ -1,0 +1,4 @@
+# Run a script that inserts new data.
+scripts:
+  - new-data
+  - new-data2

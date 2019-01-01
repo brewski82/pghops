@@ -1,0 +1,20 @@
+# Test version scripts.
+
+# This should load the user table.
+public/tables:
+  - user
+
+# This should load the user view, explicitly showing the schemas
+# directory and sql suffix.
+schemas/public/views:
+  - test.sql
+
+# Relative to the database directory.
+../:
+  - test_script
+
+# Current database directory
+./: test_script.sql
+
+# Load in data.
+data: init-data.sql

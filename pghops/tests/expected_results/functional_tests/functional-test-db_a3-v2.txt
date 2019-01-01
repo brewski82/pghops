@@ -1,0 +1,109 @@
+-[ RECORD 1 ]-+-----------------------------------------------------------------------------------------------------
+version_id    | 1
+major         | 0000
+minor         | 0000
+patch         | 0000
+label         | pghops-init
+file_name     | 0000.0000.0000.pghops-init.yaml
+file_md5      | ab80eb0560996a6f13b71ce57143ea10
+migration_sql | create schema if not exists pghops;                                                                 +
+              | create table if not exists pghops.version (                                                         +
+              |   version_id bigserial primary key                                                                  +
+              |   , major text not null                                                                             +
+              |   , minor text not null                                                                             +
+              |   , patch text not null                                                                             +
+              |   , label text                                                                                      +
+              |   , file_name text not null unique                                                                  +
+              |   , file_md5 text not null                                                                          +
+              |   , migration_sql text                                                                              +
+              |   , user_name text not null default session_user                                                    +
+              |   , user_ip inet default inet_client_addr()                                                         +
+              |   , executed_time timestamp with time zone not null default current_timestamp                       +
+              |   , notes text                                                                                      +
+              | );                                                                                                  +
+              | create table if not exists pghops.index (                                                           +
+              |   index_id bigserial primary key                                                                    +
+              |   , table_name text not null                                                                        +
+              |   , definition text not null                                                                        +
+              |   , enabled boolean not null default true                                                           +
+              |   , executed_time timestamp with time zone not null default current_timestamp                       +
+              |   , notes text                                                                                      +
+              | );                                                                                                  +
+              |                                                                                                     +
+              | create unique index pghops_index_unique_index on pghops.index(regexp_replace(definition, '\s', ''));+
+              |
+user_name     | postgres
+notes         |
+-[ RECORD 2 ]-+-----------------------------------------------------------------------------------------------------
+version_id    | 2
+major         | 0000
+minor         | 0001
+patch         | 0000
+label         | init
+file_name     | 0000.0001.0000.init.yml
+file_md5      | 87cc9caf86ad72853163d145567cdad3
+migration_sql | create table public.user (                                                                          +
+              |   user_id serial primary key                                                                        +
+              |   , user_name text                                                                                  +
+              | );                                                                                                  +
+              |                                                                                                     +
+              | create index if not exists public_user_user_name_index on public.user(user_name);                   +
+              | create or replace view public.user_view as                                                          +
+              | select * from public.user;                                                                          +
+              | select 1;                                                                                           +
+              | select 2, 'a' as a, '' as blank;                                                                    +
+              | insert into public.user (user_name) values ('pghops test user');                                    +
+              |
+user_name     | postgres
+notes         |
+-[ RECORD 3 ]-+-----------------------------------------------------------------------------------------------------
+version_id    | 3
+major         | 0000
+minor         | 0002
+patch         | 0000
+label         | new-version
+file_name     | 0000.0002.0000.new-version.yml
+file_md5      | be3d93bc22ea7276c91cbe1230f26159
+migration_sql | insert into public.user (user_name) values ('pghops new');                                          +
+              |
+user_name     | postgres
+notes         |
+-[ RECORD 4 ]-+-----------------------------------------------------------------------------------------------------
+version_id    | 4
+major         | 0000
+minor         | 0003
+patch         | 0000
+label         | new-version3
+file_name     | 0000.0003.0000.new-version3.yml
+file_md5      | 43391d6b0c8c08c9d2311b2904a282f5
+migration_sql | insert into public.user (user_name) values ('pghops new 2');                                        +
+              |
+user_name     | postgres
+notes         |
+
+-[ RECORD 1 ]---------------------------------------------------------------------------------
+index_id   | 1
+table_name | public.user
+definition | create index if not exists public_user_user_name_index on public.user(user_name);
+enabled    | t
+notes      |
+
+-[ RECORD 1 ]---------------
+user_id   | 1
+user_name | pghops test user
+-[ RECORD 2 ]---------------
+user_id   | 2
+user_name | pghops new
+-[ RECORD 3 ]---------------
+user_id   | 3
+user_name | pghops new 2
+
+-[ RECORD 1 ]---------------
+user_id   | 1
+user_name | pghops test user
+-[ RECORD 2 ]---------------
+user_id   | 2
+user_name | pghops new
+-[ RECORD 3 ]---------------
+user_id   | 3
+user_name | pghops new 2

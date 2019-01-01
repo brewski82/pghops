@@ -1,0 +1,5 @@
+# Initial pghops version script to setup version tables.
+pghops: create_schema
+pghops/tables:
+  - version
+  - index
