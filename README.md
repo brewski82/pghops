@@ -8,12 +8,12 @@ in Python.
   file names.
 * **Executes scripts with psql:** pghops uses psql to execute all sql,
   leveraging the extensive functionality of the PostgreSQL client. Use
-  any psql command.
+  any psql command in your scripts.
 * **All or nothing migrations:** Wrap your entire migration in a
-  single transaction or each migration script in a transaction if you
-  prefer.
+  single transaction or each migration script in its own transaction.
 * **All sql commands saved to version table** pghops saves all sql
-  executed during migrations to it version table.
+  executed during migrations to its version table. Make the auditors
+  happy!
 
 ## Usage Overview
 
@@ -25,8 +25,8 @@ PostgreSQL. pghops expects you to place all files associated to
 building and defining your cluster in a single directory, referred to
 henceforth as the `cluster_directory`. Each sub-directory in
 `cluster_directory` should be the name of a database within your
-cluster (if not, you can add a file named `databases` to list the
-database directories).
+cluster (if not, you can add a file named `databases` that contains
+the list of database directories).
 
 For example, say your `cluster_directory` is /tmp/pghops/main and you
 have two databases - dba and dbb. Your directory structure would look
@@ -37,7 +37,7 @@ like:
     └── dbb
 ```
 
-pghops requires each database directory to have a directory named
+pghops requires each database directory to have a sub-directory named
 `versions` which contain, you guessed it, all of you database
 migration files. Each migration file must follow the following
 versioning convention:
@@ -52,7 +52,7 @@ If pghops detects the database does not exist on the cluster, pghops
 will create it if the database directory has a file named
 `create_database.sql` containing the database creation
 commands. pghops records all migrations in a table named `version` in
-the schema `pghops`. If this table does not exists pghops will run the
+the schema `pghops`. If this table does not exist, pghops will run the
 included `0000.0000.0000.pghops-init.yaml` script first to create it.
 
 Each version file must be in yaml format and have a yaml or yml
@@ -100,7 +100,7 @@ structure the same as pgAdmin's. For example, if your
 
 and you want to use pghops to create new views defined in visitor_view
 and location_view, create a new migration script in db_a1/versions
-such as `0000.0033.0000.new-views.yml` and add lines such as:
+such as `0000.0033.0000.new-views.yml` and add the lines:
 
 ```
 schemas/public/views:
@@ -141,7 +141,7 @@ path.
 ## Best Practices
 
 ### Directory layout for your sql code
-We recommend following the same layout as pgAdmin. For example, if you
+I recommend following the same layout as pgAdmin. For example, if you
 have a database named dba, one possibility is:
 ```
 ├── dba
@@ -168,11 +168,11 @@ pghops.version table and only looks at file_names.
 As such, you can use whichever versioning scheme you like. [Semantic
 Versioning](https://semver.org/) is definitely a solid option. Another
 scheme, which requires slightly more effort for tracking but works
-well when dealing with multiple people working with many branches is
-to an auto-incrementing number for `major` that increases on every
+well when dealing with multiple people working with many branches, is
+to use an auto-incrementing number for `major` that increases on every
 merge into your master/production branch. For `minor`, use something
 that refers to either a feature branch or something that links back to
-a ticketing system. For `patch`, use an auto-incrementing number for
+a ticketing system. For `patch`, use an incrementing number for
 each migration file you create for the feature. Use `label` to
 differentiate between two people creating migration scripts for the
 same feature at the same time. This also helps to prevent merge
@@ -180,7 +180,7 @@ conflicts.
 
 ### Idempotency
 Essentially this means if you execute the same sql twice all changes
-will only take affect once. So use "if [not] exists" when write DDL
+will only take affect once. So use "if not exists" when writing DDL
 statements and check for the presence of your records first when
 executing update statements (or use the `on conflict do nothing`
 clause).
@@ -188,7 +188,7 @@ clause).
 ### Keep old migration files up to date
 The pghops.version table and Git (or another VCS) should be all you
 need for auditing and history purposes. If you make changes that would
-break older migration scripts if run on a new database, best to go
+break older migration scripts when run on a new database, best to go
 back and update the older scripts. Then you can use pghops to create a
 new database from scratch for failover, setting up new environments,
 or testing purposes.
@@ -212,21 +212,23 @@ command line, environment variables or various property files. Options
 are loaded in the following order, from highest to lowest priority:
 
 1. Command line arguments
-2. Properties in the file specified by the --options-file command line
+2. Properties in the file specified by the `--options-file` command line
    argument.
 3. Environment variables.
-4. Properties in <cluster-dir>/<db>/pghops.properties
-5. Properties in <cluster-dir>/pghops.properties
-6. Properties in pghops/conf/default.properties
+4. Properties in `<cluster-dir>/<db>/pghops.properties`
+5. Properties in `<cluster-dir>/pghops.properties`
+6. Properties in `pghops/conf/default.properties`
 
 Property files should be in yaml format and contain key/value pairs.
 
 pghops treats options in property files that only differ in case or
 usage of underscore versus hyphen the same. For example:
 
+```
 wrap-all-in-transaction
 wrap_all_in_transaction
 Wrap_All_In_Transaction
+```
 
 all refer to the same option. Environment variables should use
 underscores instead of hyphens, be in all caps, and have a prefix of
@@ -354,7 +356,7 @@ on production and you need to roll back, do you really feel
 comfortable executing the rollback script? Have you tested all
 possible state that the rollback script can encounter?
 
-In my experience the need to rolling back is infrequent and when it is
+In my experience the need to roll back is infrequent and when it is
 necessary, careful examination of the database must happen before any
 changes can take place. However, if you insist on having rollback
 scripts, you can initially create rollback files in the same versions
