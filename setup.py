@@ -22,7 +22,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pghops",
-    version="1.0.1",
+    version="1.0.2",
     author="William Bruschi",
     author_email="william.bruschi@gmail.com",
     description="A highly opionated Postgresql migration tool",
