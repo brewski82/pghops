@@ -22,6 +22,7 @@ import tempfile
 import pkg_resources
 import subprocess
 import time
+import re
 
 TIMEOUT_SECONDS = 10
 
@@ -130,3 +131,17 @@ def stop_postgres_docker(name):
         # If we succeeded in killing the container, wait a moment so
         # we can re-use the container name.
         time.sleep(2)
+
+def compare_file_contents(file_path_a, file_path_b, ignore_whitespace=True):
+    """Compare the contents of two files, optionally ignoring
+whitespace."""
+    contents_a = ''
+    with open(file_path_a) as file_a:
+        contents_a = file_a.read()
+    contents_b = ''
+    with open(file_path_b) as file_b:
+        contents_b = file_b.read()
+    if ignore_whitespace:
+        contents_a = re.sub(r'\s', '', contents_a)
+        contents_b = re.sub(r'\s', '', contents_b)
+    return contents_a == contents_b

@@ -29,7 +29,6 @@ depending on your machine's performance.
 import os
 import unittest
 import subprocess
-import re
 from pathlib import Path
 
 from pghops.main import pghops
@@ -48,18 +47,6 @@ CLUSTER_A_DIRECTORY = CLUSTERS_DIRECTORY / 'cluster_a'
 CLUSTER_A_V2_DIRECTORY = CLUSTERS_DIRECTORY / 'cluster_a_v2'
 CLUSTER_A_V3_DIRECTORY = CLUSTERS_DIRECTORY / 'cluster_a_v3'
 EXPECTED_RESULTS_DIRECTORY = CURRENT_DIRECTORY / 'expected_results' / 'functional_tests'
-
-def compare_file_contents(file_path_a, file_path_b):
-    """Ignores whitespace when comparing files."""
-    contents_a = ''
-    with open(file_path_a) as file_a:
-        contents_a = file_a.read()
-    contents_b = ''
-    with open(file_path_b) as file_b:
-        contents_b = file_b.read()
-    contents_a = re.sub(r'\s', '', contents_a)
-    contents_b = re.sub(r'\s', '', contents_b)
-    return contents_a == contents_b
 
 def dump_and_compare(test, baseline_file_path):
     """Specifically for db_a3, dump data and compare with baseline
@@ -87,7 +74,7 @@ file."""
                                  'from public.user_view order by user_id;'),
                                 '--expanded', '--echo-errors')
         output.write(result.stdout)
-    test.assertTrue(compare_file_contents(baseline_file_path, temp_file))
+    test.assertTrue(utils.compare_file_contents(baseline_file_path, temp_file))
     os.remove(temp_file)
 
 class FunctionalTests(unittest.TestCase):
