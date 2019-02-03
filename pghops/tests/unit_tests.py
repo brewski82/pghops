@@ -29,6 +29,7 @@ from pghops.main import props
 from pghops.main import pghops
 from pghops.main import psql
 from pghops.main import utils
+from pghops.main import test
 
 CURRENT_DIRECTORY = Path(__file__).parent
 CLUSTERS_DIRECTORY = CURRENT_DIRECTORY / 'test_clusters'
@@ -379,6 +380,53 @@ index statements."""
         sql = 'create unique index concurrently if not  exists __x_$_name_ on __t_a$$2ble (x);'
         result = pghops.extract_table_name_from_index_statement(sql)
         self.assertEqual(result, '__t_a$$2ble')
+
+class TestTest(unittest.TestCase):
+    """Tests the pghops unit testing framework."""
+
+    def test_get_test_suite_directories(self):
+        "Test getting the list of sub directories works."
+        directories = test.get_test_suite_directories(
+            CLUSTER_A_DIRECTORY / 'db_a1' / 'tests')
+        self.assertEqual(directories, ['01_suite', '02_suite'])
+
+    def test_is_test_file(self):
+        "Tests test file detection."
+        self.assertTrue(test.is_test_file(Path('abc_test.sql')))
+        self.assertTrue(test.is_test_file(Path('test.sql')))
+        self.assertFalse(test.is_test_file(Path('abc.sql')))
+        self.assertFalse(test.is_test_file(Path('test.txt')))
+
+    def test_get_file_list(self):
+        "Test getting the list of test files works."
+        database = 'db_a1'
+        self.assertEqual(
+            test.get_test_suite_sql_file_list(
+                CLUSTER_A_DIRECTORY,
+                database,
+                None),
+            ['01_file_test.sql'])
+        self.assertEqual(
+            test.get_test_suite_sql_file_list(
+                CLUSTER_A_DIRECTORY,
+                database,
+                '01_suite'),
+            ['01_file_test.sql', '02_file_test.sql'])
+        where = '01_suite'
+        self.assertEqual(
+            test.get_test_suite_sql_file_list(
+                CLUSTER_A_DIRECTORY,
+                database,
+                None,
+                where),
+            ['01_file_test.sql', '02_file_test.sql'])
+        self.assertEqual(
+            test.get_test_suite_sql_file_list(
+                CLUSTER_A_DIRECTORY,
+                database,
+                '01_suite',
+                where),
+            [])
 
 if __name__ == '__main__':
     unittest.main()

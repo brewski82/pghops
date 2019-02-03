@@ -33,6 +33,7 @@ setuptools.setup(
         'console_scripts': [
             'pghops = pghops.main.pghops:main',
             'pghops_create_indexes = pghops.main.create_indexes:main',
+            'pghops_test = pghops.main.test:main'
         ]
     },
     python_requires='>=3.7',
@@ -40,7 +41,8 @@ setuptools.setup(
     include_package_data=True,
     package_data={
         '': ['init/schemas/pghops/tables/*.sql', 'init/schemas/pghops/*.sql',
-             'conf/default.properties', 'init/versions/*.yaml']
+             'conf/default.properties', 'init/versions/*.yaml',
+             'conf/default-test.properties']
     },
     long_description=long_description,
     long_description_content_type="text/markdown",
