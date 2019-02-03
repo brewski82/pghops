@@ -20,6 +20,10 @@
 import datetime
 import tempfile
 import pkg_resources
+import subprocess
+import time
+
+TIMEOUT_SECONDS = 10
 
 class Verbosity():
     """Manages verbosity settings for log printing."""
@@ -85,3 +89,44 @@ def get_resource_filename(resource):
 ResourceManager API when importing from zip or Egg files. Use this
 function to get a path to the resource file."""
     return pkg_resources.resource_filename('pghops', resource)
+
+def test_postgres_docker(port):
+    """Pings the Postgres docker container to see if can accept
+commands."""
+    args = ('psql', f'--host=localhost', f'--port={port}', '--dbname=postgres',
+            '--user=postgres', '--command=select 1;')
+    result = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return result.returncode == 0
+
+def start_postgres_docker(name, port, tag):
+    """Starts the PostgreSQL docker container."""
+    image = 'postgres'
+    if tag:
+        image = f'{image}:{tag}'
+    args = ('docker', 'run', '--detach=true', '--rm=true', f'--publish={port}:5432',
+            f'--name={name}', image)
+    print_message(f'Starting Postgres {name} {image}.')
+    call = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if call.returncode != 0:
+        raise RuntimeError(call.stderr)
+    # Loop until startup finishes.
+    i = 0
+    while not test_postgres_docker(port):
+        time.sleep(1)
+        i = i + 1
+        if i > TIMEOUT_SECONDS:
+            raise RuntimeError('Unable to connect to postgres server.')
+    print_message(f'Done starting postgres {name}.')
+    return call
+
+def stop_postgres_docker(name):
+    """Stops the PostgreSQL docker container."""
+    args = ('docker', 'kill', name)
+    # For convenience we will ignore errors if the container does not
+    # exists.
+    print_message(f'Stopping Postgres {name}.')
+    result = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode == 0:
+        # If we succeeded in killing the container, wait a moment so
+        # we can re-use the container name.
+        time.sleep(2)

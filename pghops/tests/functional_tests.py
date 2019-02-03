@@ -28,7 +28,6 @@ depending on your machine's performance.
 """
 import os
 import unittest
-import time
 import subprocess
 import re
 from pathlib import Path
@@ -36,12 +35,12 @@ from pathlib import Path
 from pghops.main import pghops
 from pghops.main import psql
 from pghops.main import create_indexes
+from pghops.main import utils
 from pghops.main.utils import print_message, make_temp_file
 
 PORT = 5555
 CONTAINER = 'pghops_postgres'
 HOST = 'localhost'
-TIMEOUT_SECONDS = 10
 
 CURRENT_DIRECTORY = Path(__file__).parent
 CLUSTERS_DIRECTORY = CURRENT_DIRECTORY / 'test_clusters'
@@ -49,44 +48,6 @@ CLUSTER_A_DIRECTORY = CLUSTERS_DIRECTORY / 'cluster_a'
 CLUSTER_A_V2_DIRECTORY = CLUSTERS_DIRECTORY / 'cluster_a_v2'
 CLUSTER_A_V3_DIRECTORY = CLUSTERS_DIRECTORY / 'cluster_a_v3'
 EXPECTED_RESULTS_DIRECTORY = CURRENT_DIRECTORY / 'expected_results' / 'functional_tests'
-
-def test_postgres():
-    """Pings the Postgres docker container to see if can accept
-commands."""
-    args = ('psql', f'--host={HOST}', f'--port={PORT}', '--dbname=postgres',
-            '--user=postgres', '--command=select 1;')
-    result = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    return result.returncode == 0
-
-def start_postgres():
-    """Starts the PostgreSQL docker container."""
-    args = ('docker', 'run', '--detach=true', '--rm=true', f'--publish={PORT}:5432',
-            f'--name={CONTAINER}', 'postgres')
-    print_message('Starting Postgres CONTAINER.')
-    call = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if call.returncode != 0:
-        raise RuntimeError(call.stderr)
-    # Loop until startup finishes.
-    i = 0
-    while not test_postgres():
-        time.sleep(1)
-        i = i + 1
-        if i > TIMEOUT_SECONDS:
-            raise RuntimeError('Unable to connect to postgres server.')
-    print_message('Done starting postgres CONTAINER.')
-    return call
-
-def stop_postgres():
-    """Stops the PostgreSQL docker container."""
-    args = ('docker', 'kill', CONTAINER)
-    # For convenience we will ignore errors if the container does not
-    # exists.
-    print_message('Stopping Postgres CONTAINER.')
-    result = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if result.returncode == 0:
-        # If we succeeded in killing the container, wait a moment so
-        # we can re-use the container name.
-        time.sleep(2)
 
 def compare_file_contents(file_path_a, file_path_b):
     """Ignores whitespace when comparing files."""
@@ -150,6 +111,6 @@ class FunctionalTests(unittest.TestCase):
         create_indexes.main(['db_a3', '-p', psql_args])
 
 if __name__ == '__main__':
-    stop_postgres()
-    start_postgres()
+    utils.stop_postgres_docker(CONTAINER)
+    utils.start_postgres_docker(CONTAINER, PORT, None)
     unittest.main()
