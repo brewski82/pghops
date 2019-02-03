@@ -94,5 +94,4 @@ PARSER.add_argument(props.VERBOSITY[0], help=props.VERBOSITY[1],
                     choices=props.VERBOSITY_CHOICES)
 
 if __name__ == '__main__':
-    props.parser = PARSER
     main()
