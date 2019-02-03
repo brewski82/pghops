@@ -19,10 +19,10 @@
 
 import datetime
 import tempfile
-import pkg_resources
 import subprocess
 import time
 import re
+import pkg_resources
 
 TIMEOUT_SECONDS = 10
 

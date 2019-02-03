@@ -28,14 +28,12 @@ depending on your machine's performance.
 """
 import os
 import unittest
-import subprocess
 from pathlib import Path
-
 from pghops.main import pghops
 from pghops.main import psql
 from pghops.main import create_indexes
 from pghops.main import utils
-from pghops.main.utils import print_message, make_temp_file
+from pghops.main.utils import make_temp_file
 
 PORT = 5555
 CONTAINER = 'pghops_postgres'
