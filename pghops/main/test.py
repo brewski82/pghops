@@ -21,6 +21,7 @@ import os
 import argparse
 import re
 import sys
+import subprocess
 from pathlib import Path
 from pghops.main import props
 from pghops.main import pghops
@@ -153,6 +154,22 @@ def generate_expected(expected_path, psql_result, test_name):
         output.write(psql_result.stdout)
     utils.log_message('default', f'Generated {test_name} expected file.')
 
+def call_psql(file_path, database):
+    """Calls psql for the provided database and with input from the
+contents of file_path. We avoid using psql.call_psql in this case
+because in the event of an error an absolute path to the file
+containing the error is printed by psql, which would make our expected
+files host specific."""
+    args = psql.get_base_connection_args() + ('--dbname', database)
+    contents=''
+    with open(file_path) as file_contents:
+        contents = file_contents.read()
+    result = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            text=True, input=contents)
+    if result.returncode != 0:
+        raise psql.PostgresError(result.returncode, result.stdout, result.stderr)
+    return result
+
 def run_test_suite(fun, cluster_directory, database, sub_directory, where=None):
     """Runs all the test files in the provided test suite. The test suite
 is all the tests found in the directory by appending tests / database
@@ -173,11 +190,12 @@ run the tests that match the filter."""
             path = path.parent
     utils.log_message('default', f'Looping through tests in {path}')
     launch_docker()
+    pghops.run_migration()
     for file in test_files:
         file_path = path / file
         expected_file_name = calculate_expected_file_name(file)
         expected_path = path / expected_file_name
-        result = psql.call_psql('-f', str(file_path))
+        result = call_psql(file_path, database)
         fun(expected_path, result, file)
     stop_docker()
 
