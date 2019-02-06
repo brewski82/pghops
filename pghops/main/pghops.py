@@ -351,17 +351,21 @@ be a Path object."""
         migrate_database(context)
     log_message('default', 'Done all migrations.')
 
-def main(arg_list=None):
-    "Main entrypoint for pghops."
-    process_props(arg_list)
-    if get_prop('VERBOSITY'):
-        set_verbosity(get_prop('VERBOSITY'))
+def run_migration():
+    "Creates a new context and runs the migration."
     default_db = get_prop('CONNECTION_TEST_DATABASE')
     psql.test_connection(default_db)
     cluster_directory = Path(get_prop('CLUSTER_DIRECTORY'))
     context = Context(cluster_directory)
     context.load_existing_databases(default_db)
     migrate_cluster(context)
+
+def main(arg_list=None):
+    "Main entrypoint for pghops."
+    process_props(arg_list)
+    if get_prop('VERBOSITY'):
+        set_verbosity(get_prop('VERBOSITY'))
+    run_migration()
 
 if __name__ == '__main__':
     main()
