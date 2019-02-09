@@ -51,6 +51,13 @@ PARSER.add_argument('--docker-port', help=('The PostgreSQL Docker to expose.'
 PARSER.add_argument('--docker-name',
                     help=('The PostgreSQL Docker name to use. '
                           'Defaults to pghops-postgresql.'))
+PARSER.add_argument('--skip-docker-shutdown',
+                    help=('When true, do not shutdown the docker container '
+                          'after running tests. Helpful when developing tests '
+                          'and running migrations takes some time. After the '
+                          'initial run, you can run or develop individual tests '
+                          'without having to perform a complete migration.')
+                    , type=props.convert_bool, choices=props.BOOL_CHOICES)
 PARSER.add_argument('--ignore-whitespace',
                     help=('Whether or not to ignore whitespace when comparing '
                           'files. Defaults to true.')
@@ -119,15 +126,23 @@ def get_test_suite_sql_file_list(cluster_directory, database, sub_directory, whe
 def stop_docker():
     "Stops the PostgreSQL docker container."
     name = props.get_prop('DOCKER_NAME')
-    utils.stop_postgres_docker(name)
+    do_shutdown = not props.get_prop('SKIP_DOCKER_SHUTDOWN')
+    if do_shutdown:
+        utils.stop_postgres_docker(name)
 
 def launch_docker():
     "Runs the PostgreSQL docker image."
     name = props.get_prop('DOCKER_NAME')
     port = props.get_prop('DOCKER_PORT')
     tag = props.get_prop('DOCKER_TAG')
-    stop_docker()
-    utils.start_postgres_docker(name, port, tag)
+    is_running = True
+    try:
+        psql.test_connection(props.get_prop('CONNECTION_TEST_DATABASE'))
+    except RuntimeError:
+        is_running = False
+    if not is_running or not props.get_prop('SKIP_DOCKER_SHUTDOWN'):
+        stop_docker()
+        utils.start_postgres_docker(name, port, tag)
 
 def run_pghops():
     "Runs pghops migrations on the docker PostgreSQL image."
