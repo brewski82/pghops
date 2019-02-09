@@ -57,7 +57,15 @@ PARSER.add_argument('--ignore-whitespace',
                     , type=props.convert_bool, choices=props.BOOL_CHOICES)
 PARSER.add_argument(*props.PSQL_BASE_ARGUMENTS[0],
                     help=('"Base" arguments to psql. Defaults to "--port=5555 '
-                          '--host=localhost --username=postgres"'))
+                          '--host=localhost --username=postgres --echo-all '
+                          '--no-psqlrc --set=SHOW_CONTEXT=never"'))
+PARSER.add_argument('--psql-base-migrations-args',
+                    help=('Base arguments to psql when running migrations. '
+                          'Typically when you run the migration you want to '
+                          'fail if encountering an error, which may not be '
+                          'the case when running the tests. Defaults to '
+                          '--port=5555 --host=localhost --username=postgres '
+                          '--echo-all --no-psqlrc --set ON_ERROR_STOP=1'))
 PARSER.add_argument(*props.PSQL_ARGUMENTS[0],
                     help='A list of additional arguments to provide to psql.')
 PARSER.add_argument(*props.DBCONNINFO[0], help=props.DBCONNINFO[1])
@@ -190,7 +198,13 @@ run the tests that match the filter."""
             path = path.parent
     utils.log_message('default', f'Looping through tests in {path}')
     launch_docker()
+    # When running the migration, we want to stop on any error, but
+    # when we run tests, we want to continue on errors. Thus, for the
+    # migration only, set the stop on error flag.
+    orginal_args = props.get_prop('PSQL_BASE_ARGS')
+    props.PROPS['PSQL_BASE_ARGS'] = props.get_prop('PSQL_BASE_MIGRATION_ARGS')
     pghops.run_migration()
+    props.PROPS['PSQL_BASE_ARGS'] = orginal_args
     for file in test_files:
         file_path = path / file
         expected_file_name = calculate_expected_file_name(file)
