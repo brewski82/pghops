@@ -195,7 +195,7 @@ files host specific."""
 
 def run_test_suite(fun, cluster_directory, database, sub_directory, where=None):
     """Runs all the test files in the provided test suite. The test suite
-is all the tests found in the directory by appending tests / database
+is all the tests found in the directory by appending database / tests
 / sub_directory to the cluster directory. If where is provided, only
 run the tests that match the filter."""
     path = get_suite_path(cluster_directory, database, sub_directory)
