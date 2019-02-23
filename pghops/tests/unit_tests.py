@@ -110,10 +110,12 @@ psql calls."""
         props.process_props([str(CLUSTER_A_DIRECTORY), '-p', '--host testhost --port testport'])
         args = psql.get_base_connection_args()
         self.assertEqual(args, ('psql', '--host', 'testhost', '--port',
-                                'testport', '--set', 'ON_ERROR_STOP=1'))
+                                'testport', '--set', 'ON_ERROR_STOP=1',
+                                '--no-psqlrc'))
         props.process_props([str(CLUSTER_A_DIRECTORY), '--db-conninfo', 'testconninfo'])
         args = psql.get_base_connection_args()
-        self.assertEqual(args, ('psql', 'testconninfo', '--set', 'ON_ERROR_STOP=1'))
+        self.assertEqual(args, ('psql', 'testconninfo', '--set', 'ON_ERROR_STOP=1',
+                                '--no-psqlrc'))
         props.process_props([str(CLUSTER_A_DIRECTORY), '-p',
                              '--host testhost --port testport', '-b', ''])
         args = psql.get_base_connection_args()
