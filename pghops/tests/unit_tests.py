@@ -386,6 +386,30 @@ index statements."""
 class TestTest(unittest.TestCase):
     """Tests the pghops unit testing framework."""
 
+    def test_get_suite_path(self):
+        "Test getting the suite path."
+        database = 'db_a1'
+        path = test.get_suite_path(
+            CLUSTER_A_DIRECTORY,
+            database,
+            None)
+        self.assertEqual(
+            str(Path(CLUSTER_A_DIRECTORY / database / 'tests')),
+            str(path))
+        path = test.get_suite_path(
+            CLUSTER_A_DIRECTORY,
+            database,
+            'x')
+        self.assertEqual(
+            str(Path(CLUSTER_A_DIRECTORY / database / 'tests' / 'x')),
+            str(path))
+
+    def test_calculate_expected_file_name(self):
+        "Test generating the file name of the expected file."
+        self.assertEqual(
+            'abc_expected.txt',
+            test.calculate_expected_file_name('abc_test.sql'))
+
     def test_get_test_suite_directories(self):
         "Test getting the list of sub directories works."
         directories = test.get_test_suite_directories(
