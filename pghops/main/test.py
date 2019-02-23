@@ -28,6 +28,8 @@ from pghops.main import pghops
 from pghops.main import utils
 from pghops.main import psql
 
+ARGS = []
+
 PARSER = argparse.ArgumentParser(description="""Unit testing framework for PostgreSQL.""")
 PARSER.add_argument('command', help=("The command to run. 'run' runs the "
                                      "test(s). 'generate' creates or refreshes"
@@ -79,6 +81,7 @@ PARSER.add_argument(*props.DBCONNINFO[0], help=props.DBCONNINFO[1])
 PARSER.add_argument(props.VERBOSITY[0], help=props.VERBOSITY[1],
                     choices=props.VERBOSITY_CHOICES)
 PARSER.add_argument(props.SUFFIXES[0], help=props.SUFFIXES[1])
+PARSER.add_argument(props.OPTIONS_FILE[0], help=props.OPTIONS_FILE[1])
 
 class TestError(Exception):
     "Exception thrown by the pghops test module."
@@ -211,6 +214,7 @@ run the tests that match the filter."""
         path = path / where
         if path.is_file():
             path = path.parent
+    load_props(path)
     utils.log_message('default', f'Looping through tests in {path}')
     launch_docker()
     # When running the migration, we want to stop on any error, but
@@ -264,24 +268,36 @@ def run_tests(fun):
     for database in database_list:
         test_database(fun, cluster_directory, database, where)
 
+def load_props(directory):
+    "Searches for and loads property files in the given directory."
+    prop_file = directory / 'pghops-test.properties'
+    if prop_file.is_file():
+        props.load_yaml_file(prop_file)
+    # Re-load environment variables
+    props.PROPS.update(props.normalize_dict_keys(os.environ, strip_prefix=True))
+    # Load props from options file, if any.
+    args = ARGS[0]
+    if hasattr(args, 'OPTIONS_FILE'):
+        props.load_yaml_file(args.OPTIONS_FILE)
+    # Load command line options
+    props.PROPS.update(props.normalize_dict_keys(vars(args), omit_none=True))
+    # Set verbosity
+    if props.get_prop('VERBOSITY'):
+        utils.set_verbosity(props.get_prop('VERBOSITY'))
+
+
 def main(arg_list=None):
     """Main entry point into unit testing framework."""
     try:
         args = PARSER.parse_args(arg_list)
+        ARGS.append(args)
         props.load_initial_props(args)
         cluster_directory = Path(args.cluster_directory)
         props.load_remaining_props(cluster_directory, args.dbname, args)
         # For the test framework, load default properties from a different
         # default file.
         props.load_yaml_file(Path(utils.get_resource_filename('conf/default-test.properties')))
-        # Also load any test properties in the cluster directory.
-        cluster_properties = cluster_directory / 'pghops-test.properties'
-        if cluster_properties.is_file():
-            props.load_yaml_file(cluster_properties)
-        # Re-load command line arguments.
-        props.PROPS.update(props.normalize_dict_keys(vars(args), omit_none=True))
-        if props.get_prop('VERBOSITY'):
-            utils.set_verbosity(props.get_prop('VERBOSITY'))
+        load_props(cluster_directory)
         # The only difference between running tests and generating
         # expected files is the function to use once we start looping
         # through the tests. Determine the function to use in the loop
