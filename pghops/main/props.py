@@ -207,6 +207,8 @@ MIGRATION_FILE = ('--migration-file', """If you only want to execute a single mi
 instead of all in the versions directory, use this option. Include the suffix of the
 file. pghops will not execute this file if the file has been executed
 in the database before.""")
+OPTIONS_FILE = ('--options-file', """When provided, a path to a file
+containing additional properties to load.""")
 BOOL_CHOICES = [True, False]
 VERBOSITY_CHOICES = ['verbose', 'default', 'terse']
 
@@ -228,6 +230,7 @@ PARSER.add_argument(DRY_RUN[0], help=DRY_RUN[1], type=convert_bool, choices=BOOL
 PARSER.add_argument(VERBOSITY[0], help=VERBOSITY[1], choices=VERBOSITY_CHOICES)
 PARSER.add_argument(SUFFIXES[0], help=SUFFIXES[1])
 PARSER.add_argument(MIGRATION_FILE[0], help=MIGRATION_FILE[1])
+PARSER.add_argument(OPTIONS_FILE[0], help=OPTIONS_FILE[1])
 
 if __name__ == '__main__':
     ARGS = process_props(['/', '--h'])
