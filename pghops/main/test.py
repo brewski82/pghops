@@ -184,7 +184,7 @@ because in the event of an error an absolute path to the file
 containing the error is printed by psql, which would make our expected
 files host specific."""
     args = psql.get_base_connection_args() + ('--dbname', database)
-    contents=''
+    contents = ''
     with open(file_path) as file_contents:
         contents = file_contents.read()
     result = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
