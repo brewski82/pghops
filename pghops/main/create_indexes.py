@@ -42,7 +42,7 @@ pghops.index."""
     result = psql.call_psql('--dbname', database, '--command', INDEX_COMMAND,
                             '--tuples-only', '--echo-errors')
     stdout = result.stdout.strip()
-    return stdout.split('\n')
+    return [i for i in stdout.split('\n') if len(i.strip()) > 0]
 
 def create_index(index_statement, database):
     """Calls psql to create the index."""
@@ -74,11 +74,14 @@ def main(arg_list=None):
     if props.get_prop('VERBOSITY'):
         utils.set_verbosity(props.get_prop('VERBOSITY'))
     index_statement_list = get_index_statement_list(database)
-    # Create a list of iterables containing arguments for create_index
-    # function.
-    argument_lists = list(map(lambda x: (x, database), index_statement_list))
-    with multiprocessing.Pool(jobs) as pool:
-        pool.starmap(create_index, argument_lists)
+    if index_statement_list:
+        # Create a list of iterables containing arguments for
+        # create_index function.
+        arg_lists = list(map(lambda x: (x, database), index_statement_list))
+        with multiprocessing.Pool(jobs) as pool:
+            pool.starmap(create_index, arg_lists)
+    else:
+        utils.log_message('verbose', 'No indexes found in pghops.index')
 
 PARSER = argparse.ArgumentParser(description="""Utility to create indexes managed by pghops.""")
 PARSER.add_argument('dbname', help='Name of the database to connect to and create indexes for.')
