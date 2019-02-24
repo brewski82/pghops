@@ -1,5 +1,18 @@
 pghops is a command line PostgreSQL schema migration utility written
-in Python.
+in Python. It aims to be the simplest database migration utility for
+PostgreSQL.
+
+1. [Features](#features)
+2. [Demo](#demo)
+3. [Usage Overview](#usage-overview)
+4. [Installation](#installation)
+5. [Best Practices](#best-practices)
+6. [Options](#options)
+7. [Managing Indexes](#managing-indexes)
+8. [Unit Testing](#unit-testing)
+9. [FAQ](#faq)
+10. [Miscellaneous](#miscellaneous)
+11. [License](#license)
 
 ## Features
 
@@ -9,11 +22,195 @@ in Python.
 * **Executes scripts with psql:** pghops uses psql to execute all sql,
   leveraging the extensive functionality of the PostgreSQL client. Use
   any psql command in your scripts.
+* **Unit testing framework:** pghops comes equipped with its own unit
+  testing framework. No more excuses for skipping sql unit tests!
 * **All or nothing migrations:** Wrap your entire migration in a
   single transaction or each migration script in its own transaction.
 * **All sql commands saved to version table** pghops saves all sql
   executed during migrations to its version table. Make the auditors
   happy!
+
+## Demo
+
+The below terminal session shows how to create a database named `mydb`
+that contains two tables: `account` and `account_email`. We will
+create a simple test to ensure you cannot insert null emails into the
+`account_email` table. Then we will create a database function for
+creating accounts, along with another unit test.
+
+```
+[mycluster]$ # Create a directory named after the database, along with a script to create the database.
+[mycluster]$ mkdir mydb
+[mycluster]$ echo "create database mydb;" > mydb/create_database.sql
+[mycluster]$ # Create a directory to hold our table definitions.
+[mycluster]$ mkdir -p mydb/schemas/public/tables
+[mycluster]$ # Create SQL files containing our table definitions.
+[mycluster]$ cat - > mydb/schemas/public/tables/account.sql <<EOF
+> create table if not exists public.account (
+>   account_id bigserial primary key
+> );
+> EOF
+[mycluster]$ cat - > mydb/schemas/public/tables/account_email.sql <<EOF
+> create table if not exists public.account_email (
+>   account_email_id bigserial primary key
+>   , account_id bigint not null references account
+>   , email text not null
+> );
+> EOF
+[mycluster]$ # Create our first migration file
+[mycluster]$ mkdir mydb/versions
+[mycluster]$ cat - > mydb/versions/0001.0001.0001.init.yml <<EOF
+> public/tables:
+>   - account
+>   - account_email
+> EOF
+[mycluster]$ # Create our first unit test to ensure we cannot insert NULLs into account_email.email
+[mycluster]$ mkdir mydb/tests
+[mycluster]$ cat - > mydb/tests/01_account_email_test.sql <<EOF
+> insert into account values (default);
+> insert into account_email (account_id, email) values ((select max(account_id) from account), null);
+> EOF
+[mycluster]$ # Generated the 'expected' file and review it.
+[mycluster]$ pghops_test generate
+2019-02-23 14:18:42.452426: Looping through tests in /tmp/mycluster/mydb/tests
+2019-02-23 14:18:42.458661: Stopping Postgres pghops-postgresql.
+2019-02-23 14:18:42.476721: Starting Postgres pghops-postgresql postgres.
+2019-02-23 14:18:45.632209: Done starting postgres pghops-postgresql.
+2019-02-23 14:18:45.673046: Migrating cluster /tmp/mycluster.
+2019-02-23 14:18:45.673440: Migrating database mydb
+2019-02-23 14:18:45.674398: Database mydb does not exist. Creating it with /tmp/mycluster/mydb/create_database.sql.
+create database mydb;
+CREATE DATABASE
+
+...
+<output elided>
+...
+
+2019-02-23 14:18:46.106990: Done migrating database mydb
+2019-02-23 14:18:46.107123: Done all migrations.
+2019-02-23 14:18:46.132066: Generated 01_account_email_test.sql expected file.
+2019-02-23 14:18:46.132145: Stopping Postgres pghops-postgresql.
+2019-02-23 14:18:48.449079: Done generating expected files!
+[mycluster]$ # Review the expected file.
+[mycluster]$ cat mydb/tests/01_account_email_expected.txt
+insert into account values (default);
+INSERT 0 1
+insert into account_email (account_id, email) values ((select max(account_id) from account), null);
+ERROR:  null value in column "email" violates not-null constraint
+DETAIL:  Failing row contains (1, 1, null).
+[mycluster]$ # Looks good! We received the error as expected. As a sanity check, run the tests and they should succeeded
+[mycluster]$ pghops_test run
+
+...
+<output elided>
+...
+
+2019-02-23 14:22:31.269604: All tests passed!
+[mycluster]$ # Lets run our first migration against a real db!
+[mycluster]$ pghops
+2019-02-23 14:23:47.225273: Migrating cluster /tmp/mycluster.
+2019-02-23 14:23:47.225539: Migrating database mydb
+2019-02-23 14:23:47.226114: Database mydb does not exist. Creating it with /tmp/mycluster/mydb/create_database.sql.
+CREATE DATABASE
+
+
+BEGIN
+CREATE SCHEMA
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+INSERT 0 1
+CREATE TABLE
+CREATE TABLE
+INSERT 0 1
+COMMIT
+
+
+2019-02-23 14:23:47.827395: Done migrating database mydb
+2019-02-23 14:23:47.827536: Done all migrations.
+[mycluster]$ # Check the version table if you wish
+[mycluster]$ psql --dbname=mydb --command="select major, minor, patch, label, file_name from pghops.version;"
+ major | minor | patch |    label    |            file_name
+-------+-------+-------+-------------+---------------------------------
+ 0000  | 0000  | 0000  | pghops-init | 0000.0000.0000.pghops-init.yaml
+ 0001  | 0001  | 0001  | init        | 0001.0001.0001.init.yml
+(2 rows)
+
+[mycluster]$ # Create a function that creates accounts.
+[mycluster]$ mkdir mydb/schemas/public/functions
+[mycluster]$ cat - > mydb/schemas/public/functions/create_account.sql <<EOF
+create or replace function public.create_account
+> (
+>   p_email text
+> )
+> returns bigint
+> language plpgsql
+> as \$\$
+> declare l_account_id bigint;
+> begin
+>
+>   insert into account (account_id) values (default) returning account_id into l_account_id;
+>
+>   insert into account_email (account_id, email) values (l_account_id, p_email);
+>
+>   return l_account_id;
+>
+> end\$\$;
+> EOF
+[mycluster]$ # Next create our second migration file.
+[mycluster]$ cat - > mydb/versions/0001.0002.0001.create_account.yml <<EOF
+> public/functions: create_account
+> EOF
+[mycluster]$ # Create our second test
+[mycluster]$ echo "select create_account('x@example.com');" > mydb/tests/02_create_account_test.sql
+[mycluster]$ pghops_test generate
+2019-02-23 14:35:44.742060: Looping through tests in /tmp/mycluster/mydb/tests
+2019-02-23 14:35:44.748353: Stopping Postgres pghops-postgresql.
+2019-02-23 14:35:44.764216: Starting Postgres pghops-postgresql postgres.
+2019-02-23 14:35:47.726734: Done starting postgres pghops-postgresql.
+2019-02-23 14:35:47.767687: Migrating cluster /tmp/mycluster.
+2019-02-23 14:35:47.768116: Migrating database mydb
+2019-02-23 14:35:47.769223: Database mydb does not exist. Creating it with /tmp/mycluster/mydb/create_database.sql.
+...
+<output elided>
+...
+
+2019-02-23 14:35:48.230893: Done migrating database mydb
+2019-02-23 14:35:48.230981: Done all migrations.
+2019-02-23 14:35:48.251236: Generated 01_account_email_test.sql expected file.
+2019-02-23 14:35:48.269521: Generated 02_create_account_test.sql expected file.
+2019-02-23 14:35:48.269596: Stopping Postgres pghops-postgresql.
+2019-02-23 14:35:50.672626: Done generating expected files!
+[mycluster]$ cat mydb/tests/02_create_account_expected.txt
+select create_account('x@example.com');
+ create_account
+----------------
+              2
+(1 row)
+[mycluster]$ # Our new db function works! Lets run a migartion to update our db
+[mycluster]$ pghops
+2019-02-23 14:37:13.523780: Migrating cluster /tmp/mycluster.
+2019-02-23 14:37:13.524050: Migrating database mydb
+BEGIN
+CREATE FUNCTION
+INSERT 0 1
+COMMIT
+
+
+2019-02-23 14:37:13.572099: Done migrating database mydb
+2019-02-23 14:37:13.572224: Done all migrations.
+[mycluster]$ psql --dbname=mydb --command="select major, minor, patch, label, file_name from pghops.version;"
+ major | minor | patch |     label      |             file_name
+-------+-------+-------+----------------+-----------------------------------
+ 0000  | 0000  | 0000  | pghops-init    | 0000.0000.0000.pghops-init.yaml
+ 0001  | 0001  | 0001  | init           | 0001.0001.0001.init.yml
+ 0001  | 0002  | 0001  | create_account | 0001.0002.0001.create_account.yml
+(3 rows)
+
+[mycluster]$
+
+
+```
 
 ## Usage Overview
 
@@ -118,7 +315,7 @@ pghops
 ```
 
 See below for command line parameters. You can also pass the path of
-cluster_directory as the first argument.
+`cluster_directory` as the first argument.
 
 When you run pghops, it will concatenate the contents of
 visitor_view.sql and location_view.sql into a single file and then
@@ -129,14 +326,15 @@ clusters](src/tests/test_clusters/cluster_a).
 
 ## Installation
 
-pghops requires python 3.7 and the psql client. Install with pip:
+`pghops` requires python 3.7 and the psql client. `pghops_test`
+requires docker. Install `pghops` with pip:
 
 ```
 pip3 install pghops
 ```
 
-This should add the executeables pghops and create_indexes to your
-path.
+This should add the executeables `pghops`, `pghops_test`, and
+`pghops_create_indexes` to your path.
 
 ## Best Practices
 
@@ -207,7 +405,7 @@ psql call. A couple options:
 
 ## Options
 
-pghops has many congratulation options, which you can set via the
+pghops has many configuration options, which you can set via the
 command line, environment variables or various property files. Options
 are loaded in the following order, from highest to lowest priority:
 
@@ -258,7 +456,8 @@ would have executed.
 "terse" only prints errors. "verbose" echos all executed sql.
 
 **psql_base_args** - "Base" arguments to psql. Defaults to "--set
-ON_ERROR_STOP=1". Use this in combination with psql_arguments.
+ON_ERROR_STOP=1 --no-psqlrc". Use this in combination with
+psql_arguments.
 
 **psql_arguments** - A list of arguments to provide to psql, such as
 --host, --port, etc.
@@ -294,6 +493,9 @@ instead of all files in the versions directory.
 suffixes that migration file names must match in order to be
 executed. Defaults to yml and yaml.
 
+**option_file** - When supplied, also load options contained within
+this properties file.
+
 ## Managing Indexes
 
 As your schema evolves, you may find the need to create new indexes on
@@ -328,12 +530,74 @@ By scanning your code for indexes, you can define indexes in the same
 files as their table and pghops will add them to pghops.index
 automatically during the next migration.
 
-For every record in `pghops.index`, `create_indexes` will first check
-to see if the table_name is a valid table. It then checks the
+For every record in `pghops.index`, `pghops_create_indexes` will first
+check to see if the table_name is a valid table. It then checks the
 `enabled` flag and, if set, executes the sql in `definition`. The
 script runs in parallel based on the number of cpu cores, although
 this advantage is mitigated in more recent PostgreSQLs that can create
 a single index in parallel automatically.
+
+## Unit Testing
+
+Using the `pghops_test` command, you can create and run simple SQL
+unit tests. You will need docker installed as the tests are run in a
+PostgreSQL docker container. Here's how it works:
+
+1. Create a directory named `tests` within your database directory.
+2. In the `tests` directory, create sql files ending in
+   `_test.sql`. Usually you will want the file names to contain a
+   number for ordering purposes, such as `01_base_test.sql`.
+3. Run `pghops_test generate`. This will launch a PostgreSQL docker
+   container, run the migration, then generate companion files for
+   each sql test file. For example, for the test file
+   `01_base_test.sql` it will generate `01_base_expected.txt`.
+4. Review the generated expected file. Ensure there is no host or
+   environment specific output, such as host names or timestamps.
+5. As your schema evolves, you can run `pghops_test run` to run your
+   unit test. It will launch a new PostgreSQL docker container, run
+   the migration, execute the unit test sql files and compare the
+   output to the contents of the expected files.
+
+If you create many tests, you can organize them into suites by create
+sub-directories within the `tests` directory. Each suite is run within
+its own docker container.
+
+### Test Options
+
+Options for `pghops_test` are loaded in the same way as `pghops`
+except it looks for property files named `pghops-test.properties` in
+the test and test-suite directories. Test specific properties only
+apply when running the tests, not when running the initial migration
+in the docker container.
+
+**command** - The only required option. Either `run` or `generate`.
+
+**test** - When provided, only runs the specific test. You can specify
+a suite name, specific file, or specific file within a suite such as
+my-suite/my-file_test.sql.
+
+**docker_name** - The name of the docker image to use. Defaults to
+postgresql.
+
+**docker_tag** - Optional docker tag. If omitted, uses latest.
+
+**docker_name** - The name of the docker container to create. Defaults
+to pghops-postgresql.
+
+**skip_docker_shutdown** - Do not kill the docker container after
+running the tests.
+
+**ignore_whitespace** - Whether or not to ignore whitespace when
+comparing output against the expected files.
+
+**psql_base_migrations_args** - Similar to psql_base_args but only
+applies when running the migration.
+
+`pghops_test` also accepts the following arguments that are identical
+to the `pghops` arguments:
+
+**cluster_directory**, **dbname**, **psql_base_args**,
+**psql_arguments**, **db_conninfo**, **verbosity**, **option_file**
 
 ## FAQ
 
@@ -379,10 +643,20 @@ statement to start a new transaction. You could also omit transactions
 for this pghops run by setting the options wrap-all-in-transaction and
 wrap-each-version-in-transaction to false.
 
+### When working on a unit test, I don't want to re-run the entire migration when checking my changes.
+
+Set skip_docker_shutdown to True and supply a test name in your command. Example:
+
+`pghops_test --skip-docker-shutdown t generate 01_base_test.sql`
+
+Then next time you re-run the above command it will immediately
+execute 01_base_test.sql against the docker container without having
+to re-launch.
+
 ## Miscellaneous
 
-pghops was developed and tested on a GNU/Linux. Feel free to report
-bugs and contribute patches.
+pghops was developed and tested on GNU/Linux. Feel free to report bugs
+and contribute patches.
 
 ## License
 
