@@ -68,7 +68,7 @@ PARSER.add_argument(*props.PSQL_BASE_ARGUMENTS[0],
                     help=('"Base" arguments to psql. Defaults to "--port=5555 '
                           '--host=localhost --username=postgres --echo-all '
                           '--no-psqlrc --set=SHOW_CONTEXT=never"'))
-PARSER.add_argument('--psql-base-migrations-args',
+PARSER.add_argument('--psql-base-migration-args',
                     help=('Base arguments to psql when running migrations. '
                           'Typically when you run the migration you want to '
                           'fail if encountering an error, which may not be '
