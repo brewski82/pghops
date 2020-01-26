@@ -327,7 +327,8 @@ clusters](src/tests/test_clusters/cluster_a).
 ## Installation
 
 `pghops` requires python 3.7 and the psql client. `pghops_test`
-requires docker. Install `pghops` with pip:
+requires a docker compatible container runtime. Install `pghops` with
+pip:
 
 ```
 pip3 install pghops
@@ -540,27 +541,28 @@ a single index in parallel automatically.
 ## Unit Testing
 
 Using the `pghops_test` command, you can create and run simple SQL
-unit tests. You will need docker installed as the tests are run in a
-PostgreSQL docker container. Here's how it works:
+unit tests. You will need a docker compatible container runtime
+installed as the tests are run in a PostgreSQL container. Here's how
+it works:
 
 1. Create a directory named `tests` within your database directory.
 2. In the `tests` directory, create sql files ending in
    `_test.sql`. Usually you will want the file names to contain a
    number for ordering purposes, such as `01_base_test.sql`.
-3. Run `pghops_test generate`. This will launch a PostgreSQL docker
+3. Run `pghops_test generate`. This will launch a PostgreSQL
    container, run the migration, then generate companion files for
    each sql test file. For example, for the test file
    `01_base_test.sql` it will generate `01_base_expected.txt`.
 4. Review the generated expected file. Ensure there is no host or
    environment specific output, such as host names or timestamps.
 5. As your schema evolves, you can run `pghops_test run` to run your
-   unit test. It will launch a new PostgreSQL docker container, run
-   the migration, execute the unit test sql files and compare the
-   output to the contents of the expected files.
+   unit test. It will launch a new PostgreSQL container, run the
+   migration, execute the unit test sql files and compare the output
+   to the contents of the expected files.
 
 If you create many tests, you can organize them into suites by create
 sub-directories within the `tests` directory. Each suite is run within
-its own docker container.
+its own container.
 
 ### Test Options
 
@@ -568,7 +570,7 @@ Options for `pghops_test` are loaded in the same way as `pghops`
 except it looks for property files named `pghops-test.properties` in
 the test and test-suite directories. Test specific properties only
 apply when running the tests, not when running the initial migration
-in the docker container.
+in the container.
 
 **command** - The only required option. Either `run` or `generate`.
 
@@ -576,16 +578,18 @@ in the docker container.
 a suite name, specific file, or specific file within a suite such as
 my-suite/my-file_test.sql.
 
-**docker_name** - The name of the docker image to use. Defaults to
+**container_name** - The name of the image to use. Defaults to
 postgresql.
 
-**docker_tag** - Optional docker tag. If omitted, uses latest.
+**container_tag** - Optional tag. If omitted, uses latest.
 
-**docker_name** - The name of the docker container to create. Defaults
-to pghops-postgresql.
+**container_name** - The name of the container to create. Defaults to
+pghops-postgresql.
 
-**skip_docker_shutdown** - Do not kill the docker container after
-running the tests.
+**container_runtime** - Defaults to docker. Also tested with podman.
+
+**skip_container_shutdown** - Do not kill the container after running
+the tests.
 
 **ignore_whitespace** - Whether or not to ignore whitespace when
 comparing output against the expected files.
@@ -645,13 +649,13 @@ wrap-each-version-in-transaction to false.
 
 ### When working on a unit test, I don't want to re-run the entire migration when checking my changes.
 
-Set skip_docker_shutdown to True and supply a test name in your command. Example:
+Set skip_container_shutdown to True and supply a test name in your command. Example:
 
-`pghops_test --skip-docker-shutdown t generate 01_base_test.sql`
+`pghops_test --skip-container-shutdown t generate 01_base_test.sql`
 
 Then next time you re-run the above command it will immediately
-execute 01_base_test.sql against the docker container without having
-to re-launch.
+execute 01_base_test.sql against the container without having to
+re-launch.
 
 ## Miscellaneous
 
