@@ -27,12 +27,14 @@ set -e
 set -u
 set -o pipefail
 
+runtime="${1:-docker}"
+
 base_dir=$(dirname $(dirname $(dirname $(readlink -f "$0"))))
 
 cd $base_dir
 
 python3 -m pghops.tests.unit_tests
-python3 -m pghops.tests.functional_tests
+python3 -m pghops.tests.functional_tests "$runtime"
 
 echo
 echo "Tests succeeded!"

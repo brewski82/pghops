@@ -91,20 +91,19 @@ ResourceManager API when importing from zip or Egg files. Use this
 function to get a path to the resource file."""
     return pkg_resources.resource_filename('pghops', resource)
 
-def test_postgres_docker(port):
-    """Pings the Postgres docker container to see if can accept
-commands."""
+def test_postgres_container(port):
+    """Pings the Postgres container to see if can accept commands."""
     args = ('psql', f'--host=localhost', f'--port={port}', '--dbname=postgres',
             '--user=postgres', '--command=select 1;')
     result = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     return result.returncode == 0
 
-def start_postgres_docker(name, port, tag):
-    """Starts the PostgreSQL docker container."""
+def start_postgres_container(runtime, name, port, tag):
+    """Starts the PostgreSQL container."""
     image = 'postgres'
     if tag:
         image = f'{image}:{tag}'
-    args = ('docker', 'run', '--detach=true', '--rm=true', f'--publish={port}:5432',
+    args = (runtime, 'run', '--detach=true', '--rm=true', f'--publish={port}:5432',
             f'--name={name}', image)
     print_message(f'Starting Postgres {name} {image}.')
     call = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -112,7 +111,7 @@ def start_postgres_docker(name, port, tag):
         raise RuntimeError(call.stderr)
     # Loop until startup finishes.
     i = 0
-    while not test_postgres_docker(port):
+    while not test_postgres_container(port):
         time.sleep(1)
         i = i + 1
         if i > TIMEOUT_SECONDS:
@@ -120,9 +119,9 @@ def start_postgres_docker(name, port, tag):
     print_message(f'Done starting postgres {name}.')
     return call
 
-def stop_postgres_docker(name):
-    """Stops the PostgreSQL docker container."""
-    args = ('docker', 'kill', name)
+def stop_postgres_container(runtime, name):
+    """Stops the PostgreSQL container."""
+    args = (runtime, 'kill', name)
     # For convenience we will ignore errors if the container does not
     # exists.
     print_message(f'Stopping Postgres {name}.')

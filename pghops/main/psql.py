@@ -78,9 +78,8 @@ connect, that the server is not in recovery/standby mode."""
     if result.returncode != 0:
         if get_prop('FAIL_IF_UNABLE_TO_CONNECT'):
             raise RuntimeError(f'Connection test to {dbname} failed')
-        else:
-            log_message('default', f'Unable to connect to {dbname}. Exiting.')
-            sys.exit()
+        log_message('default', f'Unable to connect to {dbname}. Exiting.')
+        sys.exit()
     log_message('verbose', f'Connection successful. Checking if in standby mode.')
     result = subprocess_run(args + ('--tuples-only', '--command',
                                     'select pg_is_in_recovery()', '--echo-errors'))
@@ -89,9 +88,8 @@ connect, that the server is not in recovery/standby mode."""
         if get_prop('FAIL_IF_STANDBY'):
             raise RuntimeError((f'Connection test to {dbname} failed -'
                                 ' server in standby/recovery mode.'))
-        else:
-            log_message('default', f'{dbname} appears to be in standby/recovery mode. Exiting.')
-            sys.exit()
+        log_message('default', f'{dbname} appears to be in standby/recovery mode. Exiting.')
+        sys.exit()
 
 def get_existing_database_list(dbname):
     """Get a list of existing databases from the Postgres server."""

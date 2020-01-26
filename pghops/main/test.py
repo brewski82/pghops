@@ -44,17 +44,19 @@ PARSER.add_argument('-c', '--cluster-directory', default=os.getcwd(),
                           'Defaults to the current working directory.'))
 PARSER.add_argument('--dbname', '-d', help=('When specified, only run tests '
                                             'for the supplied database.'))
-PARSER.add_argument('--docker-tag', help=('The PostgreSQL Docker image tag to '
-                                          'use. If omitted, uses latest.'))
-PARSER.add_argument('--docker-port', help=('The PostgreSQL Docker to expose.'
-                                           ' Defaults to 5555. If you change '
-                                           'this also change the port in the '
-                                           'psql args.'))
-PARSER.add_argument('--docker-name',
-                    help=('The PostgreSQL Docker name to use. '
+PARSER.add_argument('--container-tag', help=('The PostgreSQL container image tag to '
+                                             'use. If omitted, uses latest.'))
+PARSER.add_argument('--container-runtime', help=('The container runtime to use. '
+                                                 'Defaults to docker.'))
+PARSER.add_argument('--container-port', help=('The PostgreSQL container to expose.'
+                                              ' Defaults to 5555. If you change '
+                                              'this also change the port in the '
+                                              'psql args.'))
+PARSER.add_argument('--container-name',
+                    help=('The PostgreSQL container name to use. '
                           'Defaults to pghops-postgresql.'))
-PARSER.add_argument('--skip-docker-shutdown',
-                    help=('When true, do not shutdown the docker container '
+PARSER.add_argument('--skip-container-shutdown',
+                    help=('When true, do not shutdown the container container '
                           'after running tests. Helpful when developing tests '
                           'and running migrations takes some time. After the '
                           'initial run, you can run or develop individual tests '
@@ -126,29 +128,31 @@ def get_test_suite_sql_file_list(cluster_directory, database, sub_directory, whe
     result.sort()
     return result
 
-def stop_docker():
-    "Stops the PostgreSQL docker container."
-    name = props.get_prop('DOCKER_NAME')
-    do_shutdown = not props.get_prop('SKIP_DOCKER_SHUTDOWN')
+def stop_container():
+    "Stops the PostgreSQL container."
+    name = props.get_prop('CONTAINER_NAME')
+    runtime = props.get_prop('CONTAINER_RUNTIME')
+    do_shutdown = not props.get_prop('SKIP_CONTAINER_SHUTDOWN')
     if do_shutdown:
-        utils.stop_postgres_docker(name)
+        utils.stop_postgres_container(runtime, name)
 
-def launch_docker():
-    "Runs the PostgreSQL docker image."
-    name = props.get_prop('DOCKER_NAME')
-    port = props.get_prop('DOCKER_PORT')
-    tag = props.get_prop('DOCKER_TAG')
+def launch_container():
+    "Runs the PostgreSQL container image."
+    runtime = props.get_prop('CONTAINER_RUNTIME')
+    name = props.get_prop('CONTAINER_NAME')
+    port = props.get_prop('CONTAINER_PORT')
+    tag = props.get_prop('CONTAINER_TAG')
     is_running = True
     try:
         psql.test_connection(props.get_prop('CONNECTION_TEST_DATABASE'))
     except RuntimeError:
         is_running = False
-    if not is_running or not props.get_prop('SKIP_DOCKER_SHUTDOWN'):
-        stop_docker()
-        utils.start_postgres_docker(name, port, tag)
+    if not is_running or not props.get_prop('SKIP_CONTAINER_SHUTDOWN'):
+        stop_container()
+        utils.start_postgres_container(runtime, name, port, tag)
 
 def run_pghops():
-    "Runs pghops migrations on the docker PostgreSQL image."
+    "Runs pghops migrations on the container PostgreSQL image."
     pghops.main()
 
 def calculate_expected_file_name(test_file_name):
@@ -170,9 +174,8 @@ def compare_result(expected_path, psql_result, test_name):
 Expected file: {expected_path}
 Actual file:   {temp_file}
 """)
-    else:
-        utils.log_message('default', f'Test {test_name} passed.')
-        os.remove(temp_file)
+    utils.log_message('default', f'Test {test_name} passed.')
+    os.remove(temp_file)
 
 def generate_expected(expected_path, psql_result, test_name):
     "Generates the file containing the expected results for future test runs."
@@ -216,7 +219,7 @@ run the tests that match the filter."""
             path = path.parent
     load_props(path)
     utils.log_message('default', f'Looping through tests in {path}')
-    launch_docker()
+    launch_container()
     # When running the migration, we want to stop on any error, but
     # when we run tests, we want to continue on errors. Thus, for the
     # migration only, set the stop on error flag.
@@ -230,7 +233,7 @@ run the tests that match the filter."""
         expected_path = path / expected_file_name
         result = call_psql(file_path, database)
         fun(expected_path, result, file)
-    stop_docker()
+    stop_container()
 
 def get_test_suite_directories(directory):
     "Returns a sorted list of directory names in the supplied directory."

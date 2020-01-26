@@ -17,17 +17,19 @@
 #
 # pylint: disable=wrong-import-position
 
-"""Functional tests that spin up a Postgres docker container to test
-all aspects of pghops. You must have docker and psql installed to run
-these tests.
+"""Functional tests that spin up a Postgres container to test all
+aspects of pghops. You must have a docker compatible containerization
+system and psql installed to run these tests.
 
-Default is to start the Postgres docker container on port 5555. Adjust
-if necessary. After starting we ping the server to ensure it is ready
-and fail if unsuccessful after timeout_seconds. You may need to adjust
+Default is to start the Postgres container on port 5555. Adjust if
+necessary. After starting we ping the server to ensure it is ready and
+fail if unsuccessful after timeout_seconds. You may need to adjust
 depending on your machine's performance.
+
 """
 import os
 import unittest
+import sys
 from pathlib import Path
 from pghops.main import pghops
 from pghops.main import psql
@@ -44,7 +46,9 @@ CLUSTERS_DIRECTORY = CURRENT_DIRECTORY / 'test_clusters'
 CLUSTER_A_DIRECTORY = CLUSTERS_DIRECTORY / 'cluster_a'
 CLUSTER_A_V2_DIRECTORY = CLUSTERS_DIRECTORY / 'cluster_a_v2'
 CLUSTER_A_V3_DIRECTORY = CLUSTERS_DIRECTORY / 'cluster_a_v3'
-EXPECTED_RESULTS_DIRECTORY = CURRENT_DIRECTORY / 'expected_results' / 'functional_tests'
+EXPECTED_RESULTS_DIRECTORY = CURRENT_DIRECTORY / 'expected_results' \
+    / 'functional_tests'
+
 
 def dump_and_compare(test, baseline_file_path):
     """Specifically for db_a3, dump data and compare with baseline
@@ -96,6 +100,10 @@ class FunctionalTests(unittest.TestCase):
         create_indexes.main(['db_a3', '-p', psql_args])
 
 if __name__ == '__main__':
-    utils.stop_postgres_docker(CONTAINER)
-    utils.start_postgres_docker(CONTAINER, PORT, None)
-    unittest.main()
+    if len(sys.argv) > 1:
+        RUNTIME = sys.argv[1]
+    else:
+        RUNTIME = 'docker'
+    utils.stop_postgres_container(RUNTIME, CONTAINER)
+    utils.start_postgres_container(RUNTIME, CONTAINER, PORT, None)
+    unittest.main(argv=['first-arg-is-ignored'], exit=False)
